@@ -1,0 +1,1495 @@
+---
+title: "Diploma"
+output: html_document
+date: '2023-02-26'
+---
+
+
+
+
+#Загрузка пакетов
+
+
+
+```{r}
+#install.packages("readr")
+#install.packages("rlang" "readr" "tidyr" "corrplot" "ggplot2" "sandwich" "lmtest" "stargazer" "caret" "Hmisc" "spgwr" "sf" "mapview" "webshot" "latex2exp" "glmnet" "tmap")
+install.packages(c("dplyr", "rlang" ,"readr" ,"tidyr", "corrplot", "ggplot2" ,"sandwich", "lmtest", "stargazer", "caret" ,"Hmisc" ,"spgwr" ,"sf", "mapview", "webshot", "latex2exp" ,"glmnet" ,"tmap"), repos = "http://cran.us.r-project.org")
+
+library(readr)
+#install.packages("dplyr")
+library(dplyr)
+library(stringr)
+#install.packages("tidyr")
+library(tidyr)
+install.packages("corrplot")
+library(corrplot)
+#install.packages("ggplot2")
+library(ggplot2)
+#install.packages("sandwich")
+library(sandwich)
+#install.packages("lmtest")
+library(lmtest)
+#install.packages("stargazer")
+library(stargazer)
+#install.packages("caret")
+library(caret)
+#install.packages("Hmisc")
+library(Hmisc)
+
+#install.packages("spgwr")
+library(spgwr)
+
+#library(tidyverse)
+#install.packages("sf")
+library(sf)
+#install.packages("mapview")
+library(mapview)
+#install.packages("webshot")
+library(webshot)
+
+
+library(tidyverse)
+#install.packages("glmnet")
+library(glmnet)
+
+library(sf)
+
+library(tmap)
+
+library(latex2exp)
+
+
+mapviewOptions(basemaps = "OpenStreetMap")
+mapviewOptions(fgb = FALSE)
+```
+
+
+
+
+
+#Загрузка и обработка данных 
+
+##Загрузка датасета, обработка данных : замена NA на значения, удаление выбросов.
+
+```{r}
+#merged = read_csv("df_final_2004.csv")
+#merged = read_csv("df_final_2504_1.csv")
+#merged = read_csv("avito_nov_0605_mod2.csv")
+#merged2 = read_csv("avito_nov_0605_mod.csv")
+#merged3 = read_csv("avito_nov_0805.csv")
+#merged$schools_500m_bin = merged2$schools_500m_bin
+#merged$kindergarten_500m_bin = merged2$kindergarten_500m_bin
+#merged$КАД_500m = merged2$КАД_500m
+#merged$ЗСД_500m = merged2$ЗСД_500m 
+#merged$class = merged3$newbuilding_type  
+
+#merged = read_csv("avito_nov_1105.csv")
+merged = read_csv("avito_nov_2105.csv")
+
+to_use <- c("price" , "metro", "total_area", "kitchen_area", "floor", "ceiling_height", "seller_category", "nfloors", "living_area", "elevator", "service_elevator", "parking", "deadline","nrooms", "balcony", "building_type", "yard", "finishing", "official_developer", "citycenter_Distance", "bus_Distance", "bus_1km", "subway_Distance","subway_1km", "schools_Distance", "schools_1km" , "kindergarten_Distance", "kindergarten_1km", "parks_Distance", "rivers_Distance", "lakes_Distance", "lakes_area_km2", "КАД_Distance", "ЗСД_Distance", "newbuilding_name", "lat", "lng", "auto_cntr", "on_foot_cntr", "transport_cntr", "prediction_tree_32", "adm", "if_city", "full_price", "if_ap", "yard_sport", "yard_kids", "yard_safe", "bt_k", "bt_m", "bt_pb", "if_first", "if_last", "if_upper1", "loggia", "if_adjoining_rooms", "schools_500m", "kindergarten_500m", "КАД_500m", "ЗСД_500m", "newbuilding_type", "railway_500m", "fin_Distance")
+
+
+
+
+data <- subset(merged, select=to_use)
+colnames(data)[colnames(data) == "if_upper1"] ="if_upper"
+colnames(data)[colnames(data) == "newbuilding_type"] ="class"
+
+data = data[order(data$ceiling_height),]
+
+colnames(data) <- gsub("_x", "", colnames(data))
+
+#sapply(merged_agr, function(merged_agr) sum(is.na(merged_agr)))
+
+
+#data = data %>% drop_na(ceiling_height)    
+#data = data %>% drop_na(kithcen_area)
+
+data["service_elevator"][is.na(data["service_elevator"])] <- "0"
+#data["parking"][is.na(data["parking"])] <- "нет"
+data["elevator"][is.na(data["elevator"])] <- "0"
+data$living_area = ifelse(is.na(data$living_area) == TRUE, data$total_area-data$kitchen_area, data$living_area)
+data$kitchen_area = ifelse(is.na(data$kitchen_area) == TRUE, data$total_area-data$living_area, data$kitchen_area)
+data$elevator = ifelse(data$elevator == "нет", "0", data$elevator)
+data$service_elevator = ifelse(data$service_elevator == "нет", "0", data$service_elevator)
+
+data$elevator = as.numeric(data$elevator)
+data$service_elevator = as.numeric(data$service_elevator)
+
+
+#### ceiling_height
+
+data$ceiling_height= ifelse(data$newbuilding_name == "Апарт-отель «ARTSTUDIO Moskovsky»" |data$newbuilding_name == "Апарт-комплекс «Zoom Черная Речка»"  , 2.6, data$ceiling_height)
+data$ceiling_height = ifelse(data$newbuilding_name == "Апарт-отель YE'S Leader" |data$newbuilding_name == "ЖК «Aerocity 4» (Аэросити 4)" | data$newbuilding_name == "ЖК «Aerocity 5» (Аэросити 5)" | data$newbuilding_name == "ЖК «AEROCITY CLUB»" |data$newbuilding_name ==  "ЖК «AEROCITY Family»" | data$newbuilding_name == "ЖК «ARTКвартал.Аквилон (Артквартал Аквилон)»" |data$newbuilding_name == "ЖК «Аквилон Leaves (Аквилон Ливз)»" | data$newbuilding_name == "ЖК «Звездный дуэт»" | data$newbuilding_name == "ЖК «Ленинский парк»" | data$newbuilding_name == "ЖК «Лисичанская, 22»"| data$newbuilding_name ==  "ЖК «Невские паруса»" | data$newbuilding_name == "ЖК «Пляж»" | data$newbuilding_name == "ЖК «Полис Новоселье»"|data$newbuilding_name == "ЖК «‎Аквилон Leaves (Аквилон Ливз)»" | data$newbuilding_name == "Инвест-отель «VIDI»", 2.7, data$ceiling_height)
+
+data$ceiling_height = ifelse(data$newbuilding_name == "Дом «Аура» у Светлановской",2.85, data$ceiling_height)
+
+data$ceiling_height = ifelse(data$newbuilding_name == "ЖК «GloraX Василеостровский»" | data$newbuilding_name == "ЖК «Большой 67»" | data$newbuilding_name == "ЖК «Галактика. Премиум»"| data$newbuilding_name == "ЖК «Новая Скандинавия»" | data$newbuilding_name == "ЖК NEVA HAUS"| data$newbuilding_name == "Клубный дом «Квадрия»" | data$newbuilding_name == "Комплекс апартаментов NEOPARK" | data$newbuilding_name == "ЖК «МИРЪ»" ,3, data$ceiling_height)
+
+data$ceiling_height = ifelse(data$newbuilding_name == "ЖК «Q-мир»" ,2.95, data$ceiling_height)
+
+data$ceiling_height = ifelse(data$newbuilding_name ==  "ЖК «Богатырь 3»", 2.6, data$ceiling_height)
+
+data$ceiling_height = ifelse(data$newbuilding_name == "ЖК «Дом на Блюхера»", 3.2, data$ceiling_height)
+
+data$ceiling_height = ifelse(data$newbuilding_name ==  "ЖК «Дом на Львовской»" | data$newbuilding_name ==  "ЖК «Дом у Каретного»" | data$newbuilding_name == "ЖК «Прагма City»"| data$newbuilding_name == "ЖК «Стрижи в Невском»" | data$newbuilding_name == "ЖК «ЦДС Волковский»" | data$newbuilding_name == "ЖК «Юбилейный квартал»", 2.75, data$ceiling_height)
+
+data$ceiling_height= ifelse(data$newbuilding_name ==  "ЖК «Каменка»", 2.8,  data$ceiling_height)
+
+data$ceiling_height = ifelse(data$newbuilding_name == "ЖК «ЛСР. Большая Охта»", 2.85,  data$ceiling_height)
+
+data$ceiling_height = ifelse(data$newbuilding_name == "ЖК «ЛСР. Ржевский парк»" | data$newbuilding_name == "ЖК ЦДС «Полюстрово»" , 2.55, data$ceiling_height)
+
+
+data$metro = ifelse(data$newbuilding_name == "ЖК «Тайм Сквер»" | data$newbuilding_name == "ЖК «New Time»" | data$newbuilding_name == "ЖК «Чистое небо»" | data$newbuilding_name == "ЖК «Полис Приморский 2»", "Комендантский проспект", data$metro)
+
+data$ceiling_height= ifelse(data$newbuilding_name == "Апарт-отель «ARTSTUDIO Moskovsky»" |data$newbuilding_name == "Апарт-комплекс «Zoom Черная Речка»"  , 2.6, data$ceiling_height)
+
+
+
+### metro
+
+data$metro = ifelse(data$newbuilding_name == "ЖК «Полет»" , "Проспект Ветеранов", data$metro)
+data$metro = ifelse(data$newbuilding_name == "ЖК «Юнтолово»" , "Беговая", data$metro)
+data$metro = ifelse(data$newbuilding_name == "ЖК «ЮгТаун»" , "Московская", data$metro)
+
+
+
+
+
+
+data["metro"][is.na(data["metro"])] <- "Лен.обл." 
+#data["balcony"][is.na(data["balcony"])] <- "нет" 
+#data["yard"][is.na(data["yard"])] <- "нет" 
+
+
+data <- subset(data,nrooms >= 0 )
+data = data[(is.na(data$ceiling_height) == TRUE) | (data$ceiling_height < 10),  ]
+data = data[(is.na(data$finishing) == FALSE), ]
+
+data = (data[,!names(data) %in%       c("full_price", "kitchen_area", "ceiling_height", "living_area")])
+
+
+as.data.frame(t(data %>% summarise_all(~ sum(is.na(.))) ))
+
+data$lakes_area_km2 = data$lakes_area_km2 * 1000000
+
+colnames(data)[colnames(data) == "lakes_area_km2"] ="lakes_area_m2"
+
+
+data$building_type = ifelse(data$newbuilding_name %in%  c("ЖК «Солнечный город»", "ЖК «Окла» (Okla)", "ЖК «Панорама парк Сосновка»", "ЖК «Pulse Premier»", "ЖК «Зеленый квартал на Пулковских высотах»", "ЖК «Солнечный город. Резиденции»"), "монолитно-кирпичный", data$building_type)
+
+data$building_type = ifelse(data$newbuilding_name %in%  c("ЖК «Парадный ансамбль»", "ЖK «Univer City»", "ЖК «Magnifika» (Магнифика)"), "монолитный", data$building_type)
+
+data = filter(data, data$building_type != "панельный")
+
+#filter(data, adm == "Центральный район")
+#sapply(data, function(data) unique(data))
+```
+
+
+
+
+##Указание порядка столбцов и их типа. Логарифмирование числовых переменных. Создание таблиц data_nolog (без логарифмирования) , data_nocoord (без координат) и data_nolog_nocoord (без логарифмирования и без координат)
+
+
+```{r}
+
+
+#to_use <- c("price" , "metro", "total_area", "kitchen_area", "floor", "ceiling_height", "seller_category", "nfloors", "living_area", "elevator", "service_elevator", "parking", "deadline","nrooms", "balcony", "building_type", "yard", "finishing", "official_developer", "citycenter_Distance", "bus_Distance", "bus_1km", "subway_Distance","subway_1km", "schools_Distance", "schools_1km" , "kindergarten_Distance", "kindergarten_1km", "parks_Distance", "rivers_Distance", "lakes_Distance", "lakes_area_m2", "КАД_Distance", "ЗСД_Distance", "newbuilding_name", "lat", "lng", "auto", "on_foot", "transport", "prediction_tree_32", "adm", "if_city", "full_price", "if_ap", "yard_sport", "yard_kids", "yard_safe", "bt_k", "bt_m", "bt_pb", "if_first", "if_last", "if_upper1", "if_upper2", "loggia", "if_adjoining_rooms", "schools_500m_bin", "kindergarten_500m_bin", "КАД_500m", "ЗСД_500m")
+
+#ggplot(filter(data, transport > 200), aes(transport, log(price)))+ geom_point()
+
+data <- data[, c("price", "citycenter_Distance", "lat", "lng", "transport_cntr", "on_foot_cntr", "adm", "if_city" , "if_ap", "nrooms","if_adjoining_rooms", "total_area", "balcony", "loggia", "finishing", "floor", "if_first", "if_last", "if_upper", "seller_category", "newbuilding_name", "class", "nfloors", "elevator", "service_elevator", "deadline" , "parking", "yard", "official_developer", "yard_sport", "yard_kids", "yard_safe", "bt_k", "bt_m", "bt_pb", "bus_Distance", "bus_1km", "metro", "subway_Distance", "subway_1km", "schools_Distance", "schools_1km","schools_500m", "kindergarten_Distance", "kindergarten_1km","kindergarten_500m",  "parks_Distance", "rivers_Distance", "lakes_Distance", "lakes_area_m2", "КАД_Distance", "ЗСД_Distance",  "КАД_500m", "ЗСД_500m", "railway_500m" ,"prediction_tree_32", "fin_Distance", "building_type")]
+
+data$fin_500m = ifelse(data$fin_Distance < 1000, 1, 0)
+data$fin_500m = as.factor(data$fin_500m)
+data$fin_Distance = ifelse(data$fin_Distance < 1000, data$fin_Distance, 1000)
+
+data = data %>%  mutate(across(c(adm, metro, seller_category, official_developer, finishing), function(x) as.factor(x)))
+
+data$finishing <- relevel(data$finishing, ref = "без отделки")
+
+
+#ggplot(data, aes(y = price, x = class, fill = building_type)) + geom_bar(stat = "identity")
+
+#data = data %>%  mutate(across(c(elevator, service_elevator, deadline, nrooms, bus_1km, subway_1km, schools_1km, kindergarten_1km), function(x) x+1))
+
+
+#data[, nums] <- sapply(data[, nums], log)
+data[, c("citycenter_Distance", "subway_Distance", "parks_Distance", "lakes_Distance", "total_area", "prediction_tree_32", "price", "on_foot_cntr", "transport_cntr", "lakes_area_m2", "fin_Distance")] <- sapply(data[, c("citycenter_Distance", "subway_Distance", "parks_Distance", "lakes_Distance", "total_area", "prediction_tree_32", "price", "on_foot_cntr", "transport_cntr", "lakes_area_m2", "fin_Distance")], log)
+
+
+data_nocoord = (data[,!names(data) %in%       c("lat", "lng")])
+
+data = data %>%  filter(data$seller_category == "Застройщик")
+
+data = data %>%  filter(data$class != "эконом")
+
+data = data %>%  mutate(across(c(class, building_type), function(x) as.factor(x)))
+
+data$class <- relevel(data$class, ref = "комфорт")
+
+data$building_type <- relevel(data$building_type, ref = "монолитный")
+
+data$balcony_loggia = ifelse(data$balcony == 1, "балкон", ifelse(data$loggia == 1, "лоджия", "нет"))
+
+data$balcony_loggia = as.factor(data$balcony_loggia)
+data$balcony_loggia <- relevel(data$balcony_loggia, ref = "нет")
+
+nums <- unlist(lapply(data, is.numeric ), use.names = FALSE) 
+
+nums[3] = FALSE
+nums[4] = FALSE
+
+#write.csv(data, file = "avito_nov_2005.csv")
+
+```
+
+
+#Работа с квартирами 
+
+##Корреляционная матрица
+
+
+```{r}
+
+CorMatrix = cor(data[, nums] , use = "complete.obs")
+
+cor.mtest <- function(mat, ...) {
+    mat <- as.matrix(mat)
+    n <- ncol(mat)
+    p.mat<- matrix(NA, n, n)
+    diag(p.mat) <- 0
+    for (i in 1:(n - 1)) {
+        for (j in (i + 1):n) {
+            tmp <- cor.test(mat[, i], mat[, j], ...)
+            p.mat[i, j] <- p.mat[j, i] <- tmp$p.value
+        }
+    }
+  colnames(p.mat) <- rownames(p.mat) <- colnames(mat)
+  p.mat
+}
+
+# Matrix of p-values (H0: correlation = 0)
+p.mat <- cor.mtest(data[, nums])
+
+CorMatrix<-round(CorMatrix,2)
+
+col <- colorRampPalette(c("#911427", "#cd5a5a", "#f6c3c3", "white", "#cdddf0", "#7da0d3", "#234a9b"))
+
+corrplot(CorMatrix, method="color", col =col(200)  , 
+         type="upper", order="original", 
+         addCoef.col = "black", # Add coefficient of correlation
+         tl.col="black", tl.srt=45, # Text label color and rotation
+         # Combine with significance
+         p.mat = p.mat, sig.level = c(0.01, 0.05, 0.1), insig ="label_sig",
+         # Hide correlation coefficient on the principal diagonal
+         diag=FALSE , number.cex=0.4, tl.cex=0.8, pch.cex=0.7)
+
+```
+
+```{r eval = FALSE}
+png(file="Corrmatrix1.png", res=450, width=4500, height=3700)
+cr1 = corrplot(CorMatrix, method="color", col =col(200)  , 
+         type="upper", order="original", 
+         addCoef.col = "black", # Add coefficient of correlation
+         tl.col="black", tl.srt=45, # Text label color and rotation
+         # Combine with significance
+         p.mat = p.mat, sig.level = c(0.01, 0.05, 0.1), insig ="label_sig",
+         # Hide correlation coefficient on the principal diagonal
+         diag=FALSE , number.cex=0.4, tl.cex=0.8, pch.cex=0.7)
+dev.off()
+
+```
+
+
+Переменные расположены в порядке убывания значимости.
+
+
+
+```{r eval = FALSE}
+options(scipen = 7)
+
+p_ord = p.mat[1, c(2:nrow(p.mat))]
+
+p_ord= p_ord[ order(p_ord)]
+p_ord
+```
+
+
+```{r}
+#png(file="scatter1.png", res=300, width=6000, height=8000)
+data[, nums] %>% 
+  gather(-price, key = "var", value = "value", factor_key =TRUE) %>%
+  ggplot(aes(x = value, y = price)) +
+    geom_point() +
+    facet_wrap(~ var, ncol=3, scales = "free", shrink=TRUE) +
+    theme_bw() + 
+    theme(axis.text = element_text(size = 14),
+          axis.title = element_text( size = 16, face = "bold" ),
+          legend.position="none",
+          strip.text = element_text(size = 20))
+#dev.off()
+```
+
+
+### Иллюстрации Приложение А
+
+```{r}
+data_sf = st_as_sf(data, coords = c("lng", "lat"),  crs = 4326)
+
+suppressWarnings(mapview(data_sf, zcol = "price", col.regions = c("#234a9b", "#7da0d3", "#cdddf0", "#f6c3c3", "#cd5a5a", "#911427"), alpha.regions = 0.8, legend = TRUE, layer.name = "price") %>% removeMapJunk( c("homeButton", "layersControl", "scaleBar", "zoomControl")))
+
+
+suppressWarnings(mapview(data_sf, zcol = "balcony_loggia", col.regions = c("#234a9b", "#cdddf0", "#911427"), alpha.regions = 0.8, cex = 4, legend = TRUE, layer.name = "balcony_loggia") %>% removeMapJunk( c("homeButton", "layersControl", "scaleBar", "zoomControl")))
+
+
+suppressWarnings(mapview(data_sf, zcol = "fin_500m"))
+
+
+bl = ggplot(data, aes(y = price, x = balcony_loggia, color = balcony_loggia)) + geom_boxplot() +
+     facet_wrap(~class) + 
+   theme_minimal() + 
+   theme(axis.text.x=element_blank(), axis.ticks.x=element_blank(), panel.grid.minor = element_blank(), panel.grid.major = element_line(colour="#cdddf0")) +
+   scale_color_manual(values=c("#234a9b", "#7da0d3", "#911427")) + 
+  ylim(NA, 13.6) 
+
+tesor = as.data.frame(table(data$class, data$balcony_loggia))
+colnames(tesor)[colnames(tesor) == "Var1"] ="class"
+colnames(tesor)[colnames(tesor) == "Var2"] ="balcony_loggia"
+colnames(tesor)[colnames(tesor) == "Freq"] ="text"
+price = c()
+for (i in 1:nrow(tesor)){
+  lk = filter(data, data$class == tesor[i, 1] & data$balcony_loggia == tesor[i, 2])
+    price[i] = max(lk$price)
+}
+
+tesor$price = price
+
+#png(file="balcony_loggia_plot.png", res=300, width=2500, height=1500)
+
+bl + geom_label(data = tesor, aes(y = price  + 0.15, x = balcony_loggia, label = text), show.legend = FALSE, fill = "white")
+
+#type_class
+
+
+
+tc = ggplot(data, aes(y = price, x = building_type, color = building_type)) + geom_boxplot() +
+     facet_wrap(~class) + 
+   theme_minimal() + 
+   theme(axis.text.x=element_blank(), axis.ticks.x=element_blank(), panel.grid.minor = element_blank(), panel.grid.major = element_line(colour="#cdddf0")) +
+   scale_color_manual(values=c("#234a9b", "#7da0d3", "#911427", "#f6c3c3")) + 
+  ylim(NA, 13.6)
+
+
+tesor = as.data.frame(table(data$class, data$building_type))
+colnames(tesor)[colnames(tesor) == "Var1"] ="class"
+colnames(tesor)[colnames(tesor) == "Var2"] ="building_type"
+colnames(tesor)[colnames(tesor) == "Freq"] ="text"
+price = c()
+for (i in 1:nrow(tesor)){
+  lk = filter(data, data$class == tesor[i, 1] & data$building_type == tesor[i, 2])
+    price[i] = max(lk$price)
+}
+
+tesor$price = price
+
+#png(file="type_class.png", res=300, width=2500, height=1500)
+
+tc + geom_label(data = tesor, aes(y = price  + 0.15, x = building_type, label = text), show.legend = FALSE, fill = "white")
+
+
+#finishing_class
+
+
+fc = ggplot(data, aes(y = price, x = finishing, color = finishing)) + geom_boxplot() +
+     facet_wrap(~class) + 
+   theme_minimal() + 
+   theme(axis.text.x=element_blank(), axis.ticks.x=element_blank(), panel.grid.minor = element_blank(), panel.grid.major = element_line(colour="#cdddf0")) +
+   scale_color_manual(values=c("#234a9b", "#7da0d3", "#911427")) + 
+  ylim(NA, 13.6)
+
+tesor = as.data.frame(table(data$class, data$finishing))
+colnames(tesor)[colnames(tesor) == "Var1"] ="class"
+colnames(tesor)[colnames(tesor) == "Var2"] ="finishing"
+colnames(tesor)[colnames(tesor) == "Freq"] ="text"
+price = c()
+for (i in 1:nrow(tesor)){
+  lk = filter(data, data$class == tesor[i, 1] & data$finishing == tesor[i, 2])
+    price[i] = max(lk$price)
+}
+
+tesor$price = price
+
+tesor[9, 3] = NA
+tesor[9, 4] = NA
+
+#png(file="finishing_class.png", res=300, width=2500, height=1500)
+
+fc + geom_label(data = tesor, aes(y = price  + 0.15, x = finishing, label = text), show.legend = FALSE, fill = "white")
+
+```
+
+
+
+
+
+
+
+##Регрессии по квартирам
+
+Регрессия по on_foot
+
+```{r}
+reg_flat_1 <- lm(price ~ on_foot_cntr, data = data) 
+
+#reg_flat_1_logprice <- lm(price_log ~ on_foot_cntr + auto_cntr, data = data) 
+
+#reg_flat_1_log <- lm(price_log ~ on_foot_cntr_log + auto_cntr_log, data = data) 
+
+
+cov_flat_1 <- vcovHC(reg_flat_1, type = "HC0")
+se_flat_1 <- sqrt(diag(cov_flat_1))
+
+coeftest(reg_flat_1, df = Inf, vcov = cov_flat_1)
+
+summary(reg_flat_1)
+
+reg_flat_1$AIC <- round(stats::AIC(reg_flat_1), 0)
+
+#logl1 = lrtest(reg_flat_1, reg_flat_1_logprice, reg_flat_1_log)
+#logl1
+```
+
+
+
+
+
+####Добавляем if_city
+
+```{r}
+reg_flat_2 <- lm(price ~ on_foot_cntr + if_city, data = data) 
+
+#reg_flat_2_logprice <- lm(price_log ~ on_foot_cntr + auto_cntr + if_city, data = data) 
+
+#reg_flat_2_log <- lm(price_log ~ on_foot_cntr_log + auto_cntr_log + if_city, data = data) 
+
+cov_flat_2 <- vcovHC(reg_flat_2, type = "HC0")
+se_flat_2 <- sqrt(diag(cov_flat_2))
+
+summary(reg_flat_2)
+
+reg_flat_2$AIC <- round(stats::AIC(reg_flat_2), 0)
+
+#logl2 = lrtest(reg_flat_2, reg_flat_2_logprice, reg_flat_2_log)
+#logl2
+
+```
+
+####Добавляем к предыдущей регресии deadline
+
+```{r}
+
+reg_flat_3 <- lm(price ~ on_foot_cntr + if_city + deadline, data = data) 
+
+#reg_flat_3_logprice <- lm(price_log ~ on_foot_cntr + auto_cntr + if_city + deadline, data = data) 
+
+#reg_flat_3_log <- lm(price_log ~ on_foot_cntr_log + auto_cntr_log + if_city + deadline, data = data) 
+
+cov_flat_3 <- vcovHC(reg_flat_3, type = "HC0")
+se_flat_3 <- sqrt(diag(cov_flat_3))
+
+summary(reg_flat_3)
+
+reg_flat_3$AIC <- round(stats::AIC(reg_flat_3),0 )
+
+#logl3 = lrtest(reg_flat_3, reg_flat_3_logprice, reg_flat_3_log)
+#logl3
+```
+
+####Добавляем к предыдущей регресии остальные переменные, связанные с самим ЖК
+
+```{r}
+reg_flat_4 <- lm(price ~ on_foot_cntr + if_city + deadline+ bus_1km +  subway_Distance + schools_1km + kindergarten_500m    +  parks_Distance + lakes_Distance + lakes_area_m2 + fin_Distance + КАД_500m +  ЗСД_500m + railway_500m, data = data) 
+
+#reg_flat_4_logprice <- lm(price_log ~ on_foot_cntr + auto_cntr + if_city + deadline+ bus_1km +  subway_Distance + schools_1km + kindergarten_500m    +  parks_Distance + lakes_Distance + lakes_area_m2 + КАД_500m +  ЗСД_500m + railway_500m, data = data) 
+
+#reg_flat_4_log <- lm(price_log ~ on_foot_cntr_log + auto_cntr_log + if_city + deadline+ bus_1km +  subway_Distance_log + schools_1km + kindergarten_500m    +  parks_Distance_log + lakes_Distance_log+ lakes_area_m2 + КАД_500m +  ЗСД_500m + railway_500m, data = data) 
+
+#reg_flat_4_loglake <- lm(price_log ~ on_foot_cntr_log + auto_cntr_log + if_city + deadline+ bus_1km +  subway_Distance_log + schools_1km + kindergarten_500m    +  parks_Distance_log + lakes_Distance_log+ log(lakes_area_m2) + КАД_500m +  ЗСД_500m + railway_500m, data = data) 
+
+cov_flat_4 <- vcovHC(reg_flat_4, type = "HC0")
+se_flat_4 <- sqrt(diag(cov_flat_4))
+
+summary(reg_flat_4)
+
+reg_flat_4$AIC <- round(stats::AIC(reg_flat_4), 0)
+
+#logl4 = lrtest(reg_flat_4, reg_flat_4_logprice, reg_flat_4_log, reg_flat_4_loglake)
+#logl4
+```
+
+####Добавляем к предыдущей регресии остальные переменные, связанные с самим ЖК
+
+```{r}
+reg_flat_5 <- lm(price ~ on_foot_cntr + if_city + deadline+ bus_1km +  subway_Distance + schools_1km + kindergarten_500m    +  parks_Distance + lakes_Distance + lakes_area_m2 +fin_Distance + КАД_500m +  ЗСД_500m + railway_500m + class + nfloors + yard_kids + building_type + if_ap, data = data) 
+
+#reg_flat_5_logprice <- lm(price_log ~ on_foot_cntr + auto_cntr + if_city + deadline+ bus_1km +  subway_Distance + schools_1km + kindergarten_500m    +  parks_Distance + lakes_Distance + lakes_area_m2 + КАД_500m +  ЗСД_500m + railway_500m + class + nfloors + yard_kids, data = data) 
+
+#reg_flat_5_log <- lm(price_log ~ on_foot_cntr_log + auto_cntr_log + if_city + deadline+ bus_1km +  subway_Distance_log + schools_1km + kindergarten_500m    +  parks_Distance_log + lakes_Distance_log + lakes_area_m2 + КАД_500m +  ЗСД_500m + railway_500m + class + nfloors + yard_kids, data = data) 
+
+#reg_flat_5_loglake <- lm(price_log ~ on_foot_cntr_log + auto_cntr_log + if_city + deadline+ bus_1km +  subway_Distance_log + schools_1km + kindergarten_500m    +  parks_Distance_log + lakes_Distance_log + log(lakes_area_m2) + КАД_500m +  ЗСД_500m + railway_500m + class + nfloors + yard_kids, data = data) 
+
+cov_flat_5 <- vcovHC(reg_flat_5, type = "HC0")
+se_flat_5 <- sqrt(diag(cov_flat_5))
+
+summary(reg_flat_5)
+
+reg_flat_5$AIC <- round(stats::AIC(reg_flat_5), 0)
+
+filter(data, data$building_type == "панельный")
+
+
+#logl5 = lrtest(reg_flat_5, reg_flat_5_logprice, reg_flat_5_log, reg_flat_5_loglake)
+#logl5
+```
+
+#### И наконец, лобавляем Характеристики жилья
+
+```{r}
+#data$prim = ifelse(data$adm == "Приморский район",1,0)
+
+reg_flat_6 <- lm(price ~ on_foot_cntr + if_city + deadline+ bus_1km +  subway_Distance + schools_1km + kindergarten_500m    +  parks_Distance + lakes_Distance + lakes_area_m2 + fin_Distance + КАД_500m +  ЗСД_500m + railway_500m + class + nfloors + yard_kids + building_type + if_ap + if_adjoining_rooms + total_area + balcony_loggia + floor + if_first + if_last + finishing, data = data)
+
+#reg_flat_6_logprice <- lm(price_log ~ on_foot_cntr + auto_cntr + if_city + deadline+ bus_1km +  subway_Distance + schools_1km + kindergarten_500m    +  parks_Distance + lakes_Distance + lakes_area_m2 + КАД_500m +  ЗСД_500m + railway_500m + class + nfloors + yard_kids + if_ap + nrooms + if_adjoining_rooms + total_area + balcony + loggia + floor + if_first + if_last + finishing, data = data)
+
+#reg_flat_6_log <- lm(price_log ~ on_foot_cntr_log + auto_cntr_log + if_city + deadline+ bus_1km +  subway_Distance_log + schools_1km + kindergarten_500m    +  parks_Distance_log + lakes_Distance_log + lakes_area_m2 + КАД_500m +  ЗСД_500m + railway_500m + class + nfloors + yard_kids + if_ap + nrooms + if_adjoining_rooms + total_area_log + balcony + loggia + floor + if_first + if_last + finishing, data = data)
+
+
+#reg_flat_6_loglake <- lm(price_log ~ on_foot_cntr_log + auto_cntr_log + if_city + deadline+ bus_1km +  subway_Distance_log + schools_1km + kindergarten_500m    +  parks_Distance_log + lakes_Distance_log + log(lakes_area_m2) + КАД_500m +  ЗСД_500m + railway_500m + class + nfloors + yard_kids + if_ap + nrooms + if_adjoining_rooms + total_area_log + balcony + loggia + floor + if_first + if_last + finishing, data = data)
+#ols_vif_tol(reg_flat_6 )
+
+#filter(data, adm == "Василеостровский район" | adm == "Приморский район"  | adm == "Кировский район"| adm ==  "Московский район")
+
+cov_flat_6 <- vcovHC(reg_flat_6, type = "HC0")
+se_flat_6 <- sqrt(diag(cov_flat_6))
+summary(reg_flat_6)
+
+reg_flat_6$AIC <- round(stats::AIC(reg_flat_6), 0)
+
+#logl6 = lrtest(reg_flat_6, reg_flat_6_logprice, reg_flat_6_log, reg_flat_6_loglake)
+#logl6
+```
+
+
+```{r eval = FALSE}
+
+lrt = list(reg_flat_1,reg_flat_2,reg_flat_3,reg_flat_4, reg_flat_5,  reg_flat_6)
+ses = list(se_flat_1, se_flat_2, se_flat_3, se_flat_4, se_flat_5,se_flat_6)
+
+stargazer(lrt,report = "vc*", 
+          title = "Гедонистическая регрессия по квартирам",
+          omit = "Constant",
+          keep.stat = c("adj.rsq", "rsq","aic", "n"), 
+          notes = "Робастные стандартные ошибки в скобках",
+          type = 'latex')
+```
+
+
+
+###Иллюстрации Регрессий
+
+
+
+##Эконом/комфорт
+
+
+```{r}
+data$class_sep = ifelse(data$class == "бизнес" | data$class == "премиум", 1, 0)
+data$class_sep = as.factor(data$class_sep)
+
+
+regs_class_sep = vector("list", length = 1+ length(levels(data$class_sep)))
+se_class_sep = vector("list", length = 1+ length(levels(data$class_sep)))
+nzhk = c()
+nzhk[1] = "ЖК"
+nmk = c()
+
+n=0
+  
+for (i in levels(data$class_sep)){
+  
+  n=n+1
+  data_copy = filter(data, class_sep == i)
+  
+  
+
+  nzhk[n+1] = as.character(length(unique(data_copy$newbuilding_name)))
+  
+  #reg = lm(price ~ citycenter_Distance + on_foot + transport + bus_1km + schools_1km + subway_Distance + kindergarten_1km + parks_Distance + rivers_Distance + КАД_Distance + total_area  + nfloors + service_elevator + deadline + nrooms  + total_area + elevator +prediction_tree_32, data = data_copy) 
+  #reg = lm(price ~ citycenter_Distance + auto + transport + on_foot + bus_1km   +    subway_Distance + schools_1km + kindergarten_1km     +  parks_Distance + lakes_Distance + lakes_area_m2 + КАД_Distance +      ЗСД_Distance + nfloors + elevator + service_elevator + deadline  + nrooms + total_area + floor  + prediction_tree_32, data = data_copy) 
+  
+    
+    if(i == 1){
+      reg = lm(price ~ on_foot_cntr + if_city + deadline+ bus_1km +  subway_Distance + schools_1km + kindergarten_500m    +  parks_Distance + lakes_Distance + lakes_area_m2 + fin_Distance + КАД_500m +  ЗСД_500m + railway_500m + nfloors + yard_kids + building_type + if_ap + nrooms + if_adjoining_rooms + total_area + balcony_loggia + floor + if_first + if_last + finishing + class, data = data_copy)
+    }
+    else{
+      reg = lm(price ~ on_foot_cntr  + if_city + deadline+ bus_1km +  subway_Distance + schools_1km + kindergarten_500m    +  parks_Distance + lakes_Distance + lakes_area_m2 + fin_Distance + КАД_500m +  ЗСД_500m + railway_500m + nfloors + yard_kids + building_type + if_ap + nrooms + if_adjoining_rooms + total_area + balcony_loggia + floor + if_first + if_last + finishing, data = data_copy)
+    }
+  
+print(summary(reg))
+  
+  #reg = lm(price ~ ., data_copy)
+cov <- vcovHC(reg, type = "HC0")
+se <- sqrt(diag(cov))
+reg$AIC <- AIC(reg)
+  regs_class_sep[[n]] =  reg
+  se_class_sep[[n]] = se
+  
+}
+  
+ 
+data_copy = data
+  
+
+  nzhk[n+2] = as.character(length(unique(data_copy$newbuilding_name)))
+  
+  #reg = lm(price ~ citycenter_Distance + on_foot + transport + bus_1km + schools_1km + subway_Distance + kindergarten_1km + parks_Distance + rivers_Distance + КАД_Distance + total_area  + nfloors + service_elevator + deadline + nrooms  + total_area + elevator +prediction_tree_32, data = data_copy) 
+  #reg = lm(price ~ citycenter_Distance + auto + transport + on_foot + bus_1km   +    subway_Distance + schools_1km + kindergarten_1km     +  parks_Distance + lakes_Distance + lakes_area_m2 + КАД_Distance +      ЗСД_Distance + nfloors + elevator + service_elevator + deadline  + nrooms + total_area + floor  + prediction_tree_32, data = data_copy) 
+  
+ 
+  
+reg = lm(price ~ on_foot_cntr + if_city + deadline+ bus_1km +  subway_Distance + schools_1km + kindergarten_500m    +  parks_Distance + lakes_Distance + lakes_area_m2 + fin_Distance + КАД_500m +  ЗСД_500m + railway_500m + nfloors + yard_kids + building_type + if_ap + nrooms + if_adjoining_rooms + total_area + balcony_loggia + floor + if_first + if_last + finishing, data = data_copy)
+ 
+  #reg = lm(price ~ ., data_copy)
+cov <- vcovHC(reg, type = "HC0")
+se <- sqrt(diag(cov))
+reg$AIC <- AIC(reg)
+  regs_class_sep[[n+1]] =  reg
+  se_class_sep[[n+1]] = se
+  
+ 
+nmk[[1]] = nzhk
+
+#k = levels(data$adm)
+
+
+#tk = 0
+#for (i in k){tk = tk+1
+  #k[tk] = paste(" \rotatebox{90}{"  , strsplit(i, " ")[[1]][1], "} ", sep = "")
+  #k[tk+1] = paste(" \rotatebox{90}{"  , "all", "} ", sep = "")
+#}
+
+
+```
+
+
+```{r}
+summary(reg_class_sep[[1]])
+summary(reg_class_sep[[2]])
+summary(reg_class_sep[[3]])
+```
+
+
+
+
+
+```{r eval = FALSE}
+stargazer(regs_class_sep,report = "vc*", 
+          title = "Гедонистическая модель по Классам",
+          omit = "Constant",
+          keep.stat = c("adj.rsq", "rsq", "n"),
+          notes = "Робастные стандартные ошибки в скобках",
+          type = 'latex', column.labels = levels(data$class_sep), 
+          add.lines = nmk)
+```
+
+
+
+
+##Регрессии по районам
+
+
+```{r}
+regs_adm = vector("list", length = 1+ length(levels(data$adm)))
+se_adm = vector("list", length = 1+ length(levels(data$adm)))
+nzhk = c()
+nzhk[1] = "ЖК"
+nmk = c()
+
+n=0
+  
+for (i in levels(data$adm)){
+  
+  n=n+1
+  data_copy = filter(data, adm == i)
+  
+
+  nzhk[n+1] = as.character(length(unique(data_copy$newbuilding_name)))
+  
+  #reg = lm(price ~ citycenter_Distance + on_foot + transport + bus_1km + schools_1km + subway_Distance + kindergarten_1km + parks_Distance + rivers_Distance + КАД_Distance + total_area  + nfloors + service_elevator + deadline + nrooms  + total_area + elevator +prediction_tree_32, data = data_copy) 
+  #reg = lm(price ~ citycenter_Distance + auto + transport + on_foot + bus_1km   +    subway_Distance + schools_1km + kindergarten_1km     +  parks_Distance + lakes_Distance + lakes_area_m2 + КАД_Distance +      ЗСД_Distance + nfloors + elevator + service_elevator + deadline  + nrooms + total_area + floor  + prediction_tree_32, data = data_copy) 
+  
+  y <- data_copy$price
+
+#define matrix of predictor variables
+#x <- data.matrix(data_copy[, c("citycenter_Distance" , "on_foot" , "transport" ,"bus_1km" , "schools_1km" , "subway_Distance" , "kindergarten_1km" , "parks_Distance" , "rivers_Distance" , "КАД_Distance"   , "nfloors", "service_elevator" , "deadline" , "nrooms"  , "total_area" ,"elevator" ,"prediction_tree_32")])
+  x <- data.matrix(data_copy[, c("on_foot_cntr","deadline" ,"bus_1km" ,"subway_Distance",  "schools_1km" , "kindergarten_500m" , "parks_Distance" , "lakes_Distance" , "lakes_area_m2", "rivers_Distance",  "nfloors", "yard_kids", "if_ap" , "nrooms"  ,"if_adjoining_rooms" , "total_area" ,"balcony_loggia","floor", "if_first", "if_last")])
+  
+#filter(data, data$adm == "Московский район" & data$if_ap == 1)
+  
+cv_model <- cv.glmnet(x, y, alpha = 1)
+
+#find optimal lambda value that minimizes test MSE
+best_lambda <- cv_model$lambda.min
+#best_lambda
+
+
+#produce plot of test MSE by lambda value
+#plot(cv_model) 
+
+best_model <- glmnet(x, y, alpha = 1, lambda = best_lambda)
+#summary(best_model)
+k = best_model$beta
+usedvar = c()
+usedvar[1] = "price"
+t = 2
+for (w in 0:length(k@Dimnames[[1]])-1){
+  #usedvar[i] = i %in%  k@i 
+  #usedvar[i] = ifelse(i %in%  k@i  == TRUE, k@Dimnames[[1]])
+  if(w %in%  k@i  == TRUE){
+    usedvar[t] = k@Dimnames[[1]][w+1]
+    t=t+1
+  }
+}
+
+  
+reg = lm(price ~ ., data = data_copy[, usedvar] )
+  
+  print(i)
+  #reg = lm(price ~ ., data_copy)
+cov <- vcovHC(reg, type = "HC0")
+se <- sqrt(diag(cov))
+reg$AIC <- AIC(reg)
+  regs_adm[[n]] =  reg
+  se_adm[[n]] = se
+}
+  
+
+  
+
+  nzhk[n+2] = as.character(length(unique(data$newbuilding_name)))
+  
+  
+  
+  data_copy = data
+  
+  
+  #reg = lm(price ~ citycenter_Distance + on_foot + transport + bus_1km + schools_1km + subway_Distance + kindergarten_1km + parks_Distance + rivers_Distance + КАД_Distance + total_area  + nfloors + service_elevator + deadline + nrooms  + total_area + elevator +prediction_tree_32, data = data_copy) 
+  #reg = lm(price ~ citycenter_Distance + auto + transport + on_foot + bus_1km   +    subway_Distance + schools_1km + kindergarten_1km     +  parks_Distance + lakes_Distance + lakes_area_m2 + КАД_Distance +      ЗСД_Distance + nfloors + elevator + service_elevator + deadline  + nrooms + total_area + floor  + prediction_tree_32, data = data_copy) 
+  
+  y <- data_copy$price
+
+#define matrix of predictor variables
+#x <- data.matrix(data_copy[, c("citycenter_Distance" , "on_foot" , "transport" ,"bus_1km" , "schools_1km" , "subway_Distance" , "kindergarten_1km" , "parks_Distance" , "rivers_Distance" , "КАД_Distance"   , "nfloors", "service_elevator" , "deadline" , "nrooms"  , "total_area" ,"elevator" ,"prediction_tree_32")])
+  x <- data.matrix(data_copy[, c("on_foot_cntr", "if_city","deadline" ,"bus_1km" ,"subway_Distance",  "schools_1km" , "kindergarten_500m" , "parks_Distance" , "lakes_Distance" , "lakes_area_m2", "fin_Distance" ,"КАД_500m", "ЗСД_500m", "railway_500m", "class",  "nfloors", "yard_kids", "if_ap" , "nrooms"  ,"if_adjoining_rooms" , "total_area" ,"balcony", "loggia","floor", "if_first", "if_last" ,"finishing")])
+  
+
+  
+  reg = lm(price ~ ., data = data_copy[, c("price", "on_foot_cntr","deadline" ,"bus_1km" ,"subway_Distance",  "schools_1km" , "kindergarten_500m" , "parks_Distance" , "lakes_Distance" , "lakes_area_m2", "rivers_Distance",  "nfloors", "yard_kids", "if_ap" , "nrooms"  ,"if_adjoining_rooms" , "total_area" ,"balcony_loggia","floor", "if_first", "if_last")])
+
+cov <- vcovHC(reg, type = "HC0")
+se <- sqrt(diag(cov))
+reg$AIC <- AIC(reg)
+  regs_adm[[n+1]] =  reg
+  se_adm[[n+1]] = se
+  
+ 
+nmk[[1]] = nzhk
+
+#k = levels(data$adm)
+
+
+#tk = 0
+#for (i in k){tk = tk+1
+  #k[tk] = paste(" \rotatebox{90}{"  , strsplit(i, " ")[[1]][1], "} ", sep = "")
+  #k[tk+1] = paste(" \rotatebox{90}{"  , "all", "} ", sep = "")
+#}
+
+
+
+```
+
+
+```{r}
+for (i in 1:length(regs_adm)){
+  summary(regs_adm[[i]])
+}
+```
+
+
+
+
+
+```{r eval = FALSE}
+stargazer(regs_adm, se = se_adm,
+          title = "Гедонистическая модель по районам",
+          omit = "Constant",
+          keep.stat = c("adj.rsq", "rsq", "n"),
+          notes = "Робастные стандартные ошибки в скобках",
+          type = 'latex', column.labels = levels(data$adm), 
+          add.lines = nmk)
+
+regs_adm_arranged = vector("list", length = 1+ length(levels(data$adm)))
+se_adm_arranged = vector("list", length = 1+ length(levels(data$adm)))
+nmk_arranged = c()
+
+regs_adm_arranged[[1]] = regs_adm[[14]]
+regs_adm_arranged[[2]] = regs_adm[[10]]
+regs_adm_arranged[[3]] = regs_adm[[11]]
+regs_adm_arranged[[4]] = regs_adm[[15]]
+regs_adm_arranged[[5]] = regs_adm[[4]]
+regs_adm_arranged[[6]] = regs_adm[[2]]
+regs_adm_arranged[[7]] = regs_adm[[8]]
+regs_adm_arranged[[8]] = regs_adm[[13]]
+regs_adm_arranged[[9]] = regs_adm[[1]]
+regs_adm_arranged[[10]] = regs_adm[[12]]
+regs_adm_arranged[[11]] = regs_adm[[9]]
+regs_adm_arranged[[12]] = regs_adm[[16]]
+regs_adm_arranged[[13]] = regs_adm[[5]]
+regs_adm_arranged[[14]] = regs_adm[[3]]
+regs_adm_arranged[[15]] = regs_adm[[7]]
+regs_adm_arranged[[16]] = regs_adm[[17]]
+regs_adm_arranged[[17]] = regs_adm[[6]]
+regs_adm_arranged[[18]] = regs_adm[[18]]
+
+se_adm_arranged[[1]] = se_adm[[14]]
+se_adm_arranged[[2]] = se_adm[[10]]
+se_adm_arranged[[3]] = se_adm[[11]]
+se_adm_arranged[[4]] = se_adm[[15]]
+se_adm_arranged[[5]] = se_adm[[4]]
+se_adm_arranged[[6]] = se_adm[[2]]
+se_adm_arranged[[7]] = se_adm[[8]]
+se_adm_arranged[[8]] = se_adm[[13]]
+se_adm_arranged[[9]] = se_adm[[1]]
+se_adm_arranged[[10]] = se_adm[[12]]
+se_adm_arranged[[11]] = se_adm[[9]]
+se_adm_arranged[[12]] = se_adm[[16]]
+se_adm_arranged[[13]] = se_adm[[5]]
+se_adm_arranged[[14]] = se_adm[[3]]
+se_adm_arranged[[15]] = se_adm[[7]]
+se_adm_arranged[[16]] = se_adm[[17]]
+se_adm_arranged[[17]] = se_adm[[6]]
+se_adm_arranged[[18]] = se_adm[[18]]
+
+nmk_arranged[[1]][1] = nmk[[1]][1]
+nmk_arranged[[1]][2] = nmk[[1]][15]
+nmk_arranged[[1]][3] = nmk[[1]][11]
+nmk_arranged[[1]][4] = nmk[[1]][12]
+nmk_arranged[[1]][5] = nmk[[1]][16]
+nmk_arranged[[1]][6] = nmk[[1]][5]
+nmk_arranged[[1]][7] = nmk[[1]][3]
+nmk_arranged[[1]][8] = nmk[[1]][9]
+nmk_arranged[[1]][9] = nmk[[1]][14]
+nmk_arranged[[1]][10] = nmk[[1]][2]
+nmk_arranged[[1]][11] = nmk[[1]][13]
+nmk_arranged[[1]][12] = nmk[[1]][10]
+nmk_arranged[[1]][13] = nmk[[1]][17]
+nmk_arranged[[1]][14] = nmk[[1]][6]
+nmk_arranged[[1]][15] = nmk[[1]][4]
+nmk_arranged[[1]][16] = nmk[[1]][8]
+nmk_arranged[[1]][17] = nmk[[1]][18]
+nmk_arranged[[1]][18] = nmk[[1]][7]
+nmk_arranged[[1]][19] = nmk[[1]][19]
+
+nladm = levels(data$adm)
+
+nladm_arranged = character()
+
+nladm_arranged[1] = nladm[14]
+nladm_arranged[2] = nladm[10]
+nladm_arranged[3] = nladm[11]
+nladm_arranged[4] = nladm[15]
+nladm_arranged[5] = nladm[4]
+nladm_arranged[6] = nladm[2]
+nladm_arranged[7] = nladm[8]
+nladm_arranged[8] = nladm[13]
+nladm_arranged[9] = nladm[1]
+nladm_arranged[10] = nladm[12]
+nladm_arranged[11] = nladm[9]
+nladm_arranged[12] = nladm[16]
+nladm_arranged[13] = nladm[5]
+nladm_arranged[14] = nladm[3]
+nladm_arranged[15] = nladm[7]
+nladm_arranged[16] = nladm[17]
+nladm_arranged[17] = nladm[6]
+
+
+
+stargazer(regs_adm_arranged, se = se_adm_arranged,
+          title = "Гедонистическая модель по районам",
+          omit = "Constant",
+          keep.stat = c("adj.rsq", "rsq", "n"),
+          notes = "Робастные стандартные ошибки в скобках",
+          type = 'latex', column.labels = nladm_arranged, 
+          add.lines = nmk_arranged)
+
+```
+
+
+
+
+###Иллюстрации Регрессий
+
+
+
+
+
+
+
+
+
+#Работа с ЖК
+
+
+##Создание аггрегированной таблицы по ЖК merged_agr, а также merged_agr_nolog (без логарифмов), merged_agr_nocoord (без координат) и merged_agr_nolog_nocoord (без логарифмов и координат)
+
+price_mean - cредняя цена за квадратный метр в жк. Переменные, относящиеся к характеристикам жилья также усреднены.
+
+
+```{r}
+
+
+merged_agr = data %>% group_by(newbuilding_name) %>%  summarise(price_mean = mean(price), nrooms_mean = mean(nrooms), total_area_mean = mean(total_area), floor_mean = mean(floor), deadline_mean = mean(deadline), КАД_500m = max(КАД_500m),  ЗСД_500m = max(ЗСД_500m), railway_500m = max(railway_500m), kindergarten_500m  = max(kindergarten_500m), if_ap = max(if_ap))
+
+merged_agr = left_join(merged_agr, data[order(-data$ЗСД_500m),], by = "newbuilding_name")
+
+
+#merged_agr = merged_agr[c(1, 3, 5, 8, 10, 33, 34, 35, 36, 56, 100, 116), ]
+
+merged_agr = merged_agr %>% 
+  group_by(newbuilding_name) %>% 
+  filter(row_number()==1)
+
+
+merged_agr = (merged_agr[,!names(merged_agr) %in%       c("price", "nrooms", "floor", "total_area")])
+
+merged_agr <- merged_agr[, c("price_mean", "citycenter_Distance", "lat", "lng","on_foot_cntr", "adm", "if_city" , "nrooms_mean", "total_area_mean", "floor_mean", "seller_category", "newbuilding_name", "class","building_type",  "nfloors", "deadline_mean" , "parking", "yard", "official_developer", "yard_sport", "yard_kids", "yard_safe", "bus_Distance", "bus_1km", "metro", "subway_Distance", "subway_1km", "schools_Distance", "schools_1km","schools_500m", "kindergarten_Distance", "kindergarten_1km","kindergarten_500m.x", "railway_500m.x",   "parks_Distance", "rivers_Distance", "lakes_Distance", "lakes_area_m2", "fin_Distance", "КАД_Distance", "ЗСД_Distance",  "КАД_500m.x", "ЗСД_500m.x", "fin_500m", "if_ap.x")]
+
+colnames(merged_agr) <- gsub(".x", "", colnames(merged_agr))
+
+nums1 <- unlist(lapply(merged_agr, is.numeric), use.names = FALSE) 
+
+nums1[3] = FALSE
+nums1[4] = FALSE
+
+
+
+merged_agr_nocoord = (merged_agr[,!names(merged_agr) %in%       c("lat", "lng")])
+merged_agr = ungroup(merged_agr)
+
+```
+
+
+##Корреляционная матрица
+
+
+```{r}
+
+
+CorMatrix = cor(merged_agr[, nums1], use = "complete.obs")
+
+cor.mtest <- function(mat, ...) {
+    mat <- as.matrix(mat)
+    n <- ncol(mat)
+    p.mat<- matrix(NA, n, n)
+    diag(p.mat) <- 0
+    for (i in 1:(n - 1)) {
+        for (j in (i + 1):n) {
+            tmp <- cor.test(mat[, i], mat[, j], ...)
+            p.mat[i, j] <- p.mat[j, i] <- tmp$p.value
+        }
+    }
+  colnames(p.mat) <- rownames(p.mat) <- colnames(mat)
+  p.mat
+}
+
+# Matrix of p-values (H0: correlation = 0)
+p.mat <- cor.mtest(merged_agr[, nums1])
+
+CorMatrix<-round(CorMatrix,2)
+
+col <- colorRampPalette(c("#911427", "#cd5a5a", "#f6c3c3", "white", "#cdddf0", "#7da0d3", "#234a9b"))
+
+
+corrplot(CorMatrix, method="color", col=col(200),  
+         type="upper", order="original", 
+         addCoef.col = "black", # Add coefficient of correlation
+         tl.col="black", tl.srt=45, # Text label color and rotation
+         # Combine with significance
+         p.mat = p.mat, sig.level = c(0.01, 0.05, 0.1), insig ="label_sig",
+         # Hide correlation coefficient on the principal diagonal
+         diag=FALSE , number.cex=0.5, tl.cex=1, pch.cex=0.8)
+
+#corrplot::corrplot(cormat, type="lower",
+#                   method = "circle", 
+#                   order = "original", 
+#                   tl.cex = 0.7,
+#                   p.mat = sig1$p, sig.level = .05, 
+#                   col = viridis::viridis(100, option = "plasma"),
+#                   diag = FALSE)
+
+#trace(corrplot, edit=TRUE)
+
+#place_points = function(sig.locs, point) {
+#      text(pos.pNew[, 1][sig.locs], (pos.pNew[, 2][sig.locs])+0.25, 
+#           labels = point, col = pch.col, cex = pch.cex, 
+#           lwd = 2)
+
+```
+
+
+```{r eval = FALSE}
+png(file="Corrmatrix2.png", res=450, width=4500, height=3700)
+cr2 = corrplot(CorMatrix, method="color", col=col(200),  
+         type="upper", order="original", 
+         addCoef.col = "black", # Add coefficient of correlation
+         tl.col="black", tl.srt=45, # Text label color and rotation
+         # Combine with significance
+         p.mat = p.mat, sig.level = c(0.01, 0.05, 0.1), insig ="label_sig",
+         # Hide correlation coefficient on the principal diagonal
+         diag=FALSE , number.cex=0.5, tl.cex=1, pch.cex=0.8)
+dev.off()
+```
+
+
+
+```{r eval = FALSE}
+p_ord = p.mat[1, c(2:nrow(p.mat))]
+p_ord = p_ord[ order(p_ord)]
+nn = names(p_ord)
+nn
+```
+
+```{r}
+#png(file="scatter2.png", res=300, width=6000, height=8000)
+merged_agr[, nums1] %>% 
+  gather(-price_mean, key = "var", value = "value") %>%
+  ggplot(aes(x = value, y = price_mean)) +
+    geom_point() +
+    facet_wrap(~ var, ncol=3, scales = "free", shrink=TRUE) +
+    theme_bw() + 
+    theme(axis.text = element_text(size = 14),
+          axis.title = element_text( size = 16, face = "bold" ),
+          legend.position="none",
+          strip.text = element_text(size = 20))
+#dev.off()
+```
+
+
+## Иллюстрации Приложение Б
+
+```{r}
+merged_agr_sf = st_as_sf(merged_agr, coords = c("lng", "lat"),  crs = 4326)
+
+mapview(merged_agr_sf, zcol = "ЗСД_500m", col.regions = c( "white",  "#234a9b"), alpha.regions = 0.8, legend = TRUE, layer.name = "ЗСД_500m") %>% removeMapJunk( c("homeButton", "layersControl", "scaleBar", "zoomControl"))
+
+mapview(merged_agr_sf, zcol = "КАД_500m", col.regions = c( "white",  "#234a9b"), alpha.regions = 0.8, legend = TRUE, layer.name = "КАД_500m") %>% removeMapJunk( c("homeButton", "layersControl", "scaleBar", "zoomControl"))
+
+mapview(merged_agr_sf, zcol = "railway_500m", col.regions = c( "white",  "#234a9b"), alpha.regions = 0.8, legend = TRUE, layer.name = "railway_500m") %>% removeMapJunk( c("homeButton", "layersControl", "scaleBar", "zoomControl"))
+
+mapview(merged_agr_sf, zcol = "fin_500m", col.regions = c( "white",  "#234a9b"), alpha.regions = 0.8, legend = TRUE, layer.name = "fin_500m") %>% removeMapJunk( c("homeButton", "layersControl", "scaleBar", "zoomControl"))
+
+mapview(merged_agr_sf, zcol = "class", col.regions = c( "white",  "#234a9b", "#911427"), alpha.regions = 0.8, legend = TRUE, layer.name = "class") %>% removeMapJunk( c("homeButton", "layersControl", "scaleBar", "zoomControl"))
+
+
+suppressWarnings(mapview(merged_agr_sf, zcol = "nfloors", col.regions = c("white", "#cdddf0", "#7da0d3", "#234a9b"), alpha.regions = 0.8, legend = TRUE, layer.name = "nfloors") %>% removeMapJunk( c("homeButton", "layersControl", "scaleBar", "zoomControl")))
+
+suppressWarnings(mapview(merged_agr_sf, zcol = "price_mean", cex = (merged_agr$parks_Distance - 1),  legend = TRUE,
+layer.name = "price_mean" , col.regions = c("#234a9b", "#7da0d3", "#cdddf0", "#f6c3c3", "#cd5a5a", "#911427"), alpha.regions = 0.9) %>% removeMapJunk( c("homeButton", "layersControl", "scaleBar", "zoomControl")))
+
+suppressWarnings(mapview(merged_agr_sf, zcol = "price_mean", cex = log(merged_agr$rivers_Distance)-1.5,  legend = TRUE,
+layer.name = "price_mean" , col.regions = c("#234a9b", "#7da0d3", "#cdddf0", "#f6c3c3", "#cd5a5a", "#911427"), alpha.regions = 0.9) %>% removeMapJunk( c("homeButton", "layersControl", "scaleBar", "zoomControl")))
+
+suppressWarnings(mapview(merged_agr_sf, zcol = "building_type", cex = "price_mean",  legend = TRUE,
+layer.name = "building_type" , col.regions = c("#234a9b", "#cdddf0", "#f6c3c3", "#911427"), alpha.regions = 0.9) %>% removeMapJunk( c("homeButton", "layersControl", "scaleBar", "zoomControl")))
+
+merged_agr_comf = filter(merged_agr, merged_agr$class == "комфорт")
+
+merged_agr_comf_sf = st_as_sf(merged_agr_comf, coords = c("lng", "lat"),  crs = 4326)
+
+suppressWarnings(mapview(merged_agr_comf_sf, zcol = "building_type", cex = (merged_agr_comf_sf$price_mean - 10)^2,  legend = TRUE,
+layer.name = "building_type" , col.regions = c("#234a9b", "#cdddf0", "#f6c3c3", "#911427"), alpha.regions = 0.9) %>% removeMapJunk( c("homeButton", "layersControl", "scaleBar", "zoomControl")))
+
+ggplot(data, aes(y = price, x = building_type, fill = class)) + geom_bar(stat="identity")
+
+ggplot(filter(data, data$class == "комфорт"), aes(y = price, x = total_area, color = building_type)) + geom_point()
+
+
+table(data$building_type, data$class)
+
+ggplot(merged_agr, aes(y = price_mean, x = deadline_mean)) + geom_point()
+
+
+ccg <- st_read("Карта районов Санкт-Петербурга от SPB4RENT.kml")
+
+ccg = ccg[-19, ]
+
+cpal = colorRampPalette(c("#911427", "#cd5a5a", "#f6c3c3", "white", "#cdddf0", "#7da0d3", "#234a9b"))
+
+cmap = mapview(ccg, zcol = "Name", col.regions= cpal, legend = TRUE, layer.name = "Название района")+ mapview(merged_agr_sf, cex = 4, col.regions = c("#234a9b"), legend = FALSE)  
+
+removeMapJunk(cmap, c("homeButton", "layersControl", "scaleBar", "zoomControl"))
+
+```
+
+
+
+##Регрессии по ЖК
+
+
+
+```{r}
+reg_zhk_1 <- lm(price_mean ~ on_foot_cntr, data = merged_agr) 
+
+cov_zhk_1 <- vcovHC(reg_zhk_1, type = "HC0")
+se_zhk_1 <- sqrt(diag(cov_zhk_1))
+
+reg_zhk_1$AIC <- round(stats::AIC(reg_zhk_1), 0)
+```
+
+
+
+
+
+```{r}
+reg_zhk_3<- lm(price_mean ~ on_foot_cntr + deadline_mean, data = merged_agr) 
+
+cov_zhk_3 <- vcovHC(reg_zhk_3, type = "HC0")
+se_zhk_3 <- sqrt(diag(cov_zhk_3))
+
+reg_zhk_3$AIC <- round(stats::AIC(reg_zhk_3), 0)
+```
+
+
+```{r}
+reg_zhk_4 <- lm(price_mean ~ on_foot_cntr + deadline_mean + bus_1km +  subway_Distance + schools_1km + kindergarten_500m    +  parks_Distance + lakes_Distance + lakes_area_m2+ fin_Distance+ КАД_500m +  ЗСД_500m + railway_500m , data = merged_agr) 
+
+
+price_mean ~  on_foot_cntr + deadline_mean + bus_1km +  subway_Distance + schools_1km + kindergarten_500m    +  parks_Distance + lakes_Distance + lakes_area_m2 + rivers_Distance + class + nfloors + yard_kids + nrooms_mean + total_area_mean + floor_mean + if_ap
+
+cov_zhk_4 <- vcovHC(reg_zhk_4, type = "HC0")
+se_zhk_4 <- sqrt(diag(cov_zhk_4))
+
+reg_zhk_4$AIC <- round(stats::AIC(reg_zhk_4), 0)
+```
+
+
+```{r}
+reg_zhk_5 <- lm(price_mean ~ on_foot_cntr + if_city + deadline_mean + bus_1km +  subway_Distance + schools_1km + kindergarten_500m    +  parks_Distance + lakes_Distance + lakes_area_m2+ fin_Distance + КАД_500m +  ЗСД_500m + railway_500m + class + nfloors + yard_kids + building_type + if_ap, data = merged_agr) 
+
+cov_zhk_5 <- vcovHC(reg_zhk_5, type = "HC0")
+se_zhk_5 <- sqrt(diag(cov_zhk_5))
+
+reg_zhk_5$AIC <- round(stats::AIC(reg_zhk_5), 0)
+```
+
+
+```{r}
+#reg_zhk_6 <- lm(price_mean ~ on_foot_cntr + if_city + deadline_mean+ bus_1km +  subway_Distance + schools_1km + kindergarten_500m    +  parks_Distance + lakes_Distance + lakes_area_m2+ fin_Distance + КАД_500m +  ЗСД_500m + railway_500m + class + nfloors + yard_kids+ building_type + if_ap + nrooms_mean + total_area_mean + floor_mean, data = merged_agr) 
+
+
+reg_zhk_6 <- lm(price_mean ~ on_foot_cntr + deadline_mean + bus_1km +  subway_Distance + schools_1km + kindergarten_500m    +  parks_Distance + lakes_Distance + lakes_area_m2 + rivers_Distance + class + nfloors + yard_kids + if_ap + nrooms_mean + total_area_mean + floor_mean, data = merged_agr) 
+
+
+cov_zhk_6 <- vcovHC(reg_zhk_6, type = "HC0")
+se_zhk_6 <- sqrt(diag(cov_zhk_6))
+
+reg_zhk_6$AIC <- round(stats::AIC(reg_zhk_6), 0)
+```
+
+
+```{r}
+summary(reg_zhk_6)
+```
+
+
+
+```{r eval = FALSE}
+lrt = list(reg_zhk_1, reg_zhk_2, reg_zhk_3,reg_zhk_4,reg_zhk_5, reg_zhk_6)
+ses = list(se_zhk_1, se_zhk_2, se_zhk_3, se_zhk_4, se_zhk_5, se_zhk_6)
+
+stargazer(reg_zhk_6,
+          title = "Гедонистическая модель по ЖК",
+          omit = "Constant",report = "vc*",
+          keep.stat = c("adj.rsq", "rsq","aic", "n"),
+          notes = "Робастные стандартные ошибки в скобках",
+          type = 'latex')
+```
+
+
+
+
+
+
+
+###Иллюстрации Регрессий
+
+
+
+
+
+
+
+##ГВР
+
+
+
+##Adaptive quantile
+
+
+
+```{r}
+rsqbest = 0.5
+u = 0.018
+aicbest = 138
+
+r2s = c()
+aics = c()
+quant = c()
+
+for (i in seq(0.075, 0.976, 0.001)){
+  gwr.model06 = gwr(price_mean ~  on_foot_cntr + deadline_mean + bus_1km +  subway_Distance + schools_1km + kindergarten_500m    +  parks_Distance + lakes_Distance + lakes_area_m2 + rivers_Distance + class + nfloors + yard_kids + nrooms_mean + total_area_mean + floor_mean + if_ap,
+                coords = cbind(merged_agr$lng, merged_agr$lat),
+                data = merged_agr,
+                adapt=i,
+                hatmatrix=TRUE,
+                se.fit=TRUE) 
+  r2 = 1-gwr.model06$results$rss/gwr.model06$gTSS
+  aic = gwr.model06$results$AICc
+  
+  r2s = append(r2s, r2)
+  aics = append(aics, aic)
+  quant = append(quant, i)
+}
+
+
+
+statist_r2_aic = data.frame(r2s, aics, quant)
+
+
+
+png(file="R2_AIC_quantile.png", res=300, width=2500, height=1500)
+
+ ggplot(statist_r2_aic %>% filter(quant*nrow(merged_agr)<50), aes(x = quant*nrow(merged_agr)))+ #filter(quant*217 > 25 & quant*217<60)
+     geom_rect(aes(xmin = 16, xmax = 20, ymin = -Inf, ymax = Inf),
+                   fill =  "lightgrey", alpha = 0.027) +
+   geom_line(aes(y = r2s),  color = "#234a9b") +
+ geom_line(aes(x = quant*nrow(merged_agr), y=(aics + 835)/940 , group=1), color="#911427") +
+ scale_y_continuous(name = TeX("$R^2$"), sec.axis = sec_axis(~.*940-835, name = "AIC")) + 
+   scale_x_continuous(name="Количество соседних наблюдений", breaks=seq(0,50,5)) +theme_classic()+ theme(axis.title.y.left =  element_text(colour = "#911427"),
+          axis.title.y.right = element_text(colour = "#234a9b"))
+
+  
+  
+  
+
+```
+
+##Bandwidth
+
+
+```{r}
+
+r2s = c()
+aics = c()
+band = c()
+
+for (i in seq(0.5, 20, 0.05)){
+  gwr.model06 = gwr(price_mean ~  on_foot_cntr + deadline_mean + bus_1km +  subway_Distance + schools_1km + kindergarten_500m    +  parks_Distance + lakes_Distance + lakes_area_m2 + rivers_Distance + class + nfloors + yard_kids + nrooms_mean + total_area_mean + floor_mean + if_ap,
+                coords = cbind(merged_agr$lng, merged_agr$lat),
+                data = merged_agr,
+                bandwidth = i,
+                hatmatrix=TRUE,
+                se.fit=TRUE) 
+  r2 = 1-gwr.model06$results$rss/gwr.model06$gTSS
+  aic = gwr.model06$results$AICc
+  
+  r2s = append(r2s, r2)
+  aics = append(aics, aic)
+  band = append(band, i)
+}
+
+
+
+statist_r2_aic_band = data.frame(r2s, aics, band)
+
+#install.packages("latex2exp")
+
+png(file="R2_AIC_bandwidth.png", res=300, width=2500, height=1500)
+
+ ggplot(statist_r2_aic_band, aes(x = band))+ #filter(quant*217 > 25 & quant*217<60)
+        geom_rect(aes(xmin = 0.8, xmax = 2.5, ymin = -Inf, ymax = Inf),
+                   fill =  "lightgrey", alpha = 0.027) +
+   geom_line(aes(y = r2s),  color = "#234a9b") +
+ geom_line(aes(x = band, y=(aics + 835)/940 , group=1), color="#911427") +
+ scale_y_continuous(name = TeX("$R^2$"), sec.axis = sec_axis(~.*940-835, name = "AIC")) + scale_x_continuous(name="Радиус в километрах", breaks=seq(0,20,2.5)) +theme_classic() + theme(axis.title.y.left =  element_text(colour = "#911427"),
+          axis.title.y.right = element_text(colour = "#234a9b"))
+ 
+ 
+```
+
+## Выбрали 20 соседей
+
+```{r}
+  gwr.model20 = gwr(price_mean ~ on_foot_cntr + deadline_mean + bus_1km +  subway_Distance + schools_1km + kindergarten_500m    +  parks_Distance + lakes_Distance + lakes_area_m2 + rivers_Distance + class + nfloors + yard_kids + nrooms_mean + total_area_mean + floor_mean + if_ap,
+                coords = cbind(merged_agr$lng, merged_agr$lat),
+                data = merged_agr,
+                adapt=20/nrow(merged_agr),
+                hatmatrix=TRUE,
+                se.fit=TRUE) 
+  r2 = 1-gwr.model20$results$rss/gwr.model20$gTSS
+  aic = gwr.model20$results$AICc
+  
+  
+  merged_agr_gwr = merged_agr
+resultszhk05<-as.data.frame(gwr.model20$SDF)
+merged_agr_gwr$on_foot_cntr<-resultszhk05$on_foot_cntr
+merged_agr_gwr$bus_1km<-resultszhk05$bus_1km
+merged_agr_gwr$subway_Distance<-resultszhk05$subway_Distance
+merged_agr_gwr$schools_1km<-resultszhk05$schools_1km
+merged_agr_gwr$kindergarten_500m<-resultszhk05$kindergarten_500m
+merged_agr_gwr$parks_Distance<-resultszhk05$parks_Distance
+merged_agr_gwr$lakes_Distance<-resultszhk05$lakes_Distance
+merged_agr_gwr$lakes_area_m2<-resultszhk05$lakes_area_m2
+merged_agr_gwr$rivers_Distance<-resultszhk05$rivers_Distance
+merged_agr_gwr$classбизнес<-resultszhk05$classбизнес
+merged_agr_gwr$classпремиум<-resultszhk05$classпремиум
+merged_agr_gwr$nfloors<-resultszhk05$nfloors
+merged_agr_gwr$deadline<-resultszhk05$deadline_mean
+merged_agr_gwr$yard_kids<-resultszhk05$yard_kids
+merged_agr_gwr$total_area_mean<-resultszhk05$total_area_mean
+merged_agr_gwr$floor_mean<-resultszhk05$floor_mean
+merged_agr_gwr$nrooms_mean<-resultszhk05$nrooms_mean
+merged_agr_gwr$if_ap<-resultszhk05$if_ap
+
+merged_agr_gwr$localR2<-resultszhk05$localR2
+
+
+sbux_sfcolorzhk05 <- st_as_sf(merged_agr_gwr, coords = c("lng", "lat"),  crs = 4326)
+
+mapviewOptions(basemaps = "OpenStreetMap")
+
+
+mapview(sbux_sfcolorzhk05, zcol = "on_foot_cntr", legend = TRUE,
+layer.name = 'on_foot_cntr', col.regions = c("#234a9b", "#7da0d3", "#cdddf0", "#f6c3c3", "#cd5a5a", "#911427"))
+mapview(sbux_sfcolorzhk05, zcol = "if_ap", legend = TRUE,
+layer.name = 'if_ap', col.regions = c("#234a9b", "#7da0d3", "#cdddf0", "#f6c3c3", "#cd5a5a", "#911427"))
+mapview(sbux_sfcolorzhk05, zcol = "deadline", legend = TRUE,
+layer.name = 'deadline_mean', col.regions = c("#234a9b", "#7da0d3", "#cdddf0", "#f6c3c3", "#cd5a5a", "#911427"))
+mapview(sbux_sfcolorzhk05, zcol = "bus_1km", legend = TRUE,
+layer.name = 'bus_1km', col.regions = c("#234a9b", "#7da0d3", "#cdddf0", "#f6c3c3", "#cd5a5a", "#911427"))
+mapview(sbux_sfcolorzhk05, zcol = "subway_Distance", legend = TRUE,
+layer.name = 'subway_Distance', col.regions = c("#234a9b", "#7da0d3", "#cdddf0", "#f6c3c3", "#cd5a5a", "#911427"))
+mapview(sbux_sfcolorzhk05, zcol = "schools_1km", legend = TRUE,
+layer.name = 'schools_1km', col.regions = c("#234a9b", "#7da0d3", "#cdddf0", "#f6c3c3", "#cd5a5a", "#911427"))
+mapview(sbux_sfcolorzhk05, zcol = "kindergarten_500m", legend = TRUE,
+layer.name = "kindergarten_500m", col.regions = c("#234a9b", "#7da0d3", "#cdddf0", "#f6c3c3", "#cd5a5a", "#911427"))
+mapview(sbux_sfcolorzhk05, zcol = "parks_Distance", legend = TRUE,
+layer.name = 'parks_Distance', col.regions = c("#234a9b", "#7da0d3", "#cdddf0", "#f6c3c3", "#cd5a5a", "#911427"))
+mapview(sbux_sfcolorzhk05, zcol = "lakes_Distance", legend = TRUE,
+layer.name = 'lakes_Distance', col.regions = c("#234a9b", "#7da0d3", "#cdddf0", "#f6c3c3", "#cd5a5a", "#911427"))
+mapview(sbux_sfcolorzhk05, zcol = "lakes_area_m2", legend = TRUE,
+layer.name = 'lakes_area_m2', col.regions = c("#234a9b", "#7da0d3", "#cdddf0", "#f6c3c3", "#cd5a5a", "#911427"))
+mapview(sbux_sfcolorzhk05, zcol = "rivers_Distance", legend = TRUE,
+layer.name = 'rivers_Distance', col.regions = c("#234a9b", "#7da0d3", "#cdddf0", "#f6c3c3", "#cd5a5a", "#911427"))
+mapview(sbux_sfcolorzhk05, zcol = "classбизнес", legend = TRUE,
+layer.name = 'class - бизнес', col.regions = c("#234a9b", "#7da0d3", "#cdddf0", "#f6c3c3", "#cd5a5a", "#911427"))
+mapview(sbux_sfcolorzhk05, zcol = "classпремиум", legend = TRUE,
+layer.name = 'class - премиум', col.regions = c("#234a9b", "#7da0d3", "#cdddf0", "#f6c3c3", "#cd5a5a", "#911427"))
+mapview(sbux_sfcolorzhk05, zcol = "nfloors", legend = TRUE,
+layer.name = 'nfloors', col.regions = c("#234a9b", "#7da0d3", "#cdddf0", "#f6c3c3", "#cd5a5a", "#911427"))
+mapview(sbux_sfcolorzhk05, zcol = "yard_kids", legend = TRUE,
+layer.name = 'yard_kids', col.regions = c("#234a9b", "#7da0d3", "#cdddf0", "#f6c3c3", "#cd5a5a", "#911427"))
+mapview(sbux_sfcolorzhk05, zcol = "total_area_mean", legend = TRUE,
+layer.name = 'total_area_mean', col.regions = c("#234a9b", "#7da0d3", "#cdddf0" , "#f6c3c3", "#cd5a5a", "#911427"))
+mapview(sbux_sfcolorzhk05, zcol = "floor_mean", legend = TRUE,
+layer.name = 'floor_mean', col.regions = c("#234a9b", "#7da0d3", "#cdddf0" , "#f6c3c3", "#cd5a5a", "#911427"))
+mapview(sbux_sfcolorzhk05, zcol = "nrooms_mean", legend = TRUE,
+layer.name = 'nrooms_mean', col.regions = c("#234a9b", "#7da0d3", "#cdddf0", "#f6c3c3", "#cd5a5a", "#911427"))
+
+mapview(sbux_sfcolorzhk05, zcol = "localR2", legend = TRUE,
+layer.name = "local R2", col.regions = c("#234a9b", "#7da0d3", "#cdddf0", "#f6c3c3", "#cd5a5a", "#911427"))
+
+
+  
+  
+```
+
+
+```{r eval = FALSE}
+m1 = mapview(sbux_sfcolorzhk05, zcol = "on_foot_cntr", legend = TRUE,
+layer.name = 'on_foot_cntr', col.regions = c("#234a9b", "#7da0d3", "#cdddf0", "#f6c3c3", "#cd5a5a", "#911427"))
+m2 = mapview(sbux_sfcolorzhk05, zcol = "if_ap", legend = TRUE,
+layer.name = 'if_ap', col.regions = c("#234a9b", "#7da0d3", "#cdddf0", "#f6c3c3", "#cd5a5a", "#911427"))
+m4 = mapview(sbux_sfcolorzhk05, zcol = "deadline", legend = TRUE,
+layer.name = 'deadline_mean', col.regions = c("#234a9b", "#7da0d3", "#cdddf0", "#f6c3c3", "#cd5a5a", "#911427"))
+m5 = mapview(sbux_sfcolorzhk05, zcol = "bus_1km", legend = TRUE,
+layer.name = 'bus_1km', col.regions = c("#234a9b", "#7da0d3", "#cdddf0", "#f6c3c3", "#cd5a5a", "#911427"))
+m6 = mapview(sbux_sfcolorzhk05, zcol = "subway_Distance", legend = TRUE,
+layer.name = 'subway_Distance', col.regions = c("#234a9b", "#7da0d3", "#cdddf0", "#f6c3c3", "#cd5a5a", "#911427"))
+m7 = mapview(sbux_sfcolorzhk05, zcol = "schools_1km", legend = TRUE,
+layer.name = 'schools_1km', col.regions = c("#234a9b", "#7da0d3", "#cdddf0", "#f6c3c3", "#cd5a5a", "#911427"))
+m8 = mapview(sbux_sfcolorzhk05, zcol = "kindergarten_500m", legend = TRUE,
+layer.name = "kindergarten_500m", col.regions = c("#234a9b", "#7da0d3", "#cdddf0", "#f6c3c3", "#cd5a5a", "#911427"))
+m9 = mapview(sbux_sfcolorzhk05, zcol = "parks_Distance", legend = TRUE,
+layer.name = 'parks_Distance', col.regions = c("#234a9b", "#7da0d3", "#cdddf0", "#f6c3c3", "#cd5a5a", "#911427"))
+m10 = mapview(sbux_sfcolorzhk05, zcol = "lakes_Distance", legend = TRUE,
+layer.name = 'lakes_Distance', col.regions = c("#234a9b", "#7da0d3", "#cdddf0", "#f6c3c3", "#cd5a5a", "#911427"))
+m11 = mapview(sbux_sfcolorzhk05, zcol = "lakes_area_m2", legend = TRUE,
+layer.name = 'lakes_area_m2', col.regions = c("#234a9b", "#7da0d3", "#cdddf0", "#f6c3c3", "#cd5a5a", "#911427"))
+m3 = mapview(sbux_sfcolorzhk05, zcol = "rivers_Distance", legend = TRUE,
+layer.name = 'rivers_Distance', col.regions = c("#234a9b", "#7da0d3", "#cdddf0", "#f6c3c3", "#cd5a5a", "#911427"))
+m16 = mapview(sbux_sfcolorzhk05, zcol = "classбизнес", legend = TRUE,
+layer.name = 'class - бизнес', col.regions = c("#234a9b", "#7da0d3", "#cdddf0", "#f6c3c3", "#cd5a5a", "#911427"))
+m17 = mapview(sbux_sfcolorzhk05, zcol = "classпремиум", legend = TRUE,
+layer.name = 'class - премиум', col.regions = c("#234a9b", "#7da0d3", "#cdddf0", "#f6c3c3", "#cd5a5a", "#911427"))
+m18 = mapview(sbux_sfcolorzhk05, zcol = "nfloors", legend = TRUE,
+layer.name = 'nfloors', col.regions = c("#234a9b", "#7da0d3", "#cdddf0", "#f6c3c3", "#cd5a5a", "#911427"))
+m19 = mapview(sbux_sfcolorzhk05, zcol = "yard_kids", legend = TRUE,
+layer.name = 'yard_kids', col.regions = c("#234a9b", "#7da0d3", "#cdddf0", "#f6c3c3", "#cd5a5a", "#911427"))
+m20 = mapview(sbux_sfcolorzhk05, zcol = "total_area_mean", legend = TRUE,
+layer.name = 'total_area_mean', col.regions = c("#234a9b", "#7da0d3", "#cdddf0" , "#f6c3c3", "#cd5a5a", "#911427"))
+m21 = mapview(sbux_sfcolorzhk05, zcol = "floor_mean", legend = TRUE,
+layer.name = 'floor_mean', col.regions = c("#234a9b", "#7da0d3", "#cdddf0" , "#f6c3c3", "#cd5a5a", "#911427"))
+m22 = mapview(sbux_sfcolorzhk05, zcol = "nrooms_mean", legend = TRUE,
+layer.name = 'nrooms_mean', col.regions = c("#234a9b", "#7da0d3", "#cdddf0", "#f6c3c3", "#cd5a5a", "#911427"))
+
+mR2 = mapview(sbux_sfcolorzhk05, zcol = "localR2", legend = TRUE,
+layer.name = "local R2", col.regions = c("#234a9b", "#7da0d3", "#cdddf0", "#f6c3c3", "#cd5a5a", "#911427"))
+
+
+mapviewOptions(basemaps = "OpenStreetMap")
+#mapviewOptions(fgb = FALSE, georaster = FALSE)
+
+yep = c(m1,m4, m5, m6, m7,m8, m9, m10,m3, m16, m17, m18, m19,m2, m20, m21, m22)
+n = 0
+
+yep1 = c(mR2)
+
+for (i in yep1){
+  n= "R2"
+  mapshot(i, file = paste0(getwd(), "/m" , as.character(n), ".png"),
+          remove_controls = c("homeButton", "layersControl", "scaleBar", "zoomControl"), vheight = 700, vwidth = 1100)
+}
+```
+
+
+
+
+
+
+
+
